@@ -3,23 +3,17 @@
 # Function to create a new chroot environment
 create_environment() {
     local env_name=$1
-    mkdir -p "/var/chroot/$env_name"
+    sudo mkdir -p "/var/chroot/$env_name"
 
-    # Copy essential files and directories
-    directories=("/bin" "/lib")
-    for dir in "${directories[@]}"; do
-        sudo cp -R "$dir" "/var/chroot/$env_name$dir"
+    # Essential directories to copy. This handles usrmerge and non-usrmerge systems.
+    local essential_dirs=("/bin" "/lib" "/lib64" "/usr")
+
+    for dir in "${essential_dirs[@]}"; do
+        if [ -e "$dir" ]; then
+             # Use cp -aL to copy directories, dereferencing symlinks to copy contents.
+             sudo cp -aL "$dir" "/var/chroot/$env_name/"
+        fi
     done
-    
-    # Check if /lib64 exists and copy it if present
-    if [ -d "/lib64" ]; then
-        sudo cp -R /lib64 "/var/chroot/$env_name"
-    fi
-    
-    # Create /usr directory and copy /usr/bin and /usr/lib
-    sudo mkdir -p "/var/chroot/$env_name/usr"
-    sudo cp -R /usr/bin "/var/chroot/$env_name/usr"
-    sudo cp -R /usr/lib "/var/chroot/$env_name/usr"
     
     # Create necessary device nodes
     sudo mkdir -p "/var/chroot/$env_name/dev"
@@ -47,12 +41,12 @@ run_command() {
 build_environment() {
     local env_name=$1
     local chrootfile=$2
-    mkdir -p "/var/chroot/$env_name"
+    sudo mkdir -p "/var/chroot/$env_name"
     while IFS= read -r line; do
         if [[ $line == COPY* ]]; then
             src=$(echo "$line" | awk '{print $2}')
             dest=$(echo "$line" | awk '{print $3}')
-            sudo cp -R "$src" "/var/chroot/$env_name/$dest"
+            sudo rsync -aLK "$src" "/var/chroot/$env_name/$dest"
         elif [[ $line == MKDEV* ]]; then
             dev=$(echo "$line" | awk '{print $2}')
             type=$(echo "$line" | awk '{print $3}')

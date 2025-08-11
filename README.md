@@ -27,22 +27,24 @@ Chrooter is a Docker-like CLI tool for managing chroot sandbox environments. It 
 
 ## Usage
 
+**Note:** All `chrooter` commands must be run with `sudo` as they operate on system-level directories and configurations.
+
 ### Create a new environment
 
 ```sh
-chrooter create <environment_name>
+sudo chrooter create <environment_name>
 ```
 
 ### Start an environment
 
 ```sh
-chrooter start <environment_name>
+sudo chrooter start <environment_name>
 ```
 
 ### Run a command inside an environment
 
 ```sh
-chrooter run <environment_name> <command>
+sudo chrooter run <environment_name> <command>
 ```
 
 ### Build an environment from a `Chrootfile`
@@ -51,19 +53,19 @@ chrooter run <environment_name> <command>
 2. Run the build command:
 
    ```sh
-   chrooter build <environment_name> [Chrootfile]
+   sudo chrooter build <environment_name> [Chrootfile]
    ```
 
 ### List environments
 
 ```sh
-chrooter ps
+sudo chrooter ps
 ```
 
 ### Remove an environment
 
 ```sh
-chrooter rm <environment_name>
+sudo chrooter rm <environment_name>
 ```
 
 ### Example `Chrootfile`
