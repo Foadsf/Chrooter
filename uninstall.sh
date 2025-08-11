@@ -10,8 +10,10 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Copy chroot-manager.sh to the install directory
-install -m 755 chroot-manager.sh "$INSTALL_DIR/$ALIAS_NAME"
-
-echo "$ALIAS_NAME is now installed and ready to use."
-echo "Please ensure $INSTALL_DIR is in your PATH."
+# Remove the chrooter binary
+if [ -f "$INSTALL_DIR/$ALIAS_NAME" ]; then
+    rm "$INSTALL_DIR/$ALIAS_NAME"
+    echo "$ALIAS_NAME has been uninstalled."
+else
+    echo "$ALIAS_NAME is not installed."
+fi
