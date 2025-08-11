@@ -4,11 +4,22 @@ set -euo pipefail  # Enable strict error handling
 
 # Constants
 CHROOT_BASE="/var/chroot"
+LOG_FILE="/var/log/chrooter.log"
 VALID_NAME_PATTERN="^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+
+# Helper function for logging
+log_message() {
+    local level=$1
+    shift
+    local message=$@
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" >> "$LOG_FILE"
+}
 
 # Helper function for error handling
 error_exit() {
-    echo "Error: $1" >&2
+    local message=$1
+    log_message "ERROR" "$message"
+    echo "Error: $message" >&2
     exit 1
 }
 
@@ -70,6 +81,7 @@ copy_binary_with_deps() {
 # Function to create a new chroot environment
 create_environment() {
     local env_name=$1
+    log_message "INFO" "Attempting to create environment: $env_name"
     validate_env_name "$env_name"
     
     local env_path="$CHROOT_BASE/$env_name"
@@ -104,11 +116,13 @@ create_environment() {
     mknod -m 666 "$env_path/dev/random" c 1 8
 
     echo "Successfully created chroot environment: $env_name"
+    log_message "INFO" "Successfully created environment: $env_name"
 }
 
 # Function to start a chroot environment
 start_environment() {
     local env_name=$1
+    log_message "INFO" "Attempting to start environment: $env_name"
     validate_env_name "$env_name"
 
     local env_path="$CHROOT_BASE/$env_name"
@@ -120,7 +134,8 @@ start_environment() {
     mount -t proc proc "$env_path/proc" || error_exit "Failed to mount proc"
     mount -t sysfs sys "$env_path/sys" || error_exit "Failed to mount sysfs"
 
-    trap 'umount "$env_path/proc" "$env_path/sys"' EXIT
+    log_message "INFO" "Entering chroot environment: $env_name"
+    trap 'umount "$env_path/proc" "$env_path/sys"; log_message "INFO" "Exited chroot environment: $env_name"' EXIT
 
     chroot "$env_path" /bin/bash || error_exit "Failed to start chroot environment"
 }
@@ -128,6 +143,8 @@ start_environment() {
 # Function to run a command inside a chroot environment
 run_command() {
     local env_name=$1
+    local command_to_run="${@:2}"
+    log_message "INFO" "Attempting to run command in environment '$env_name': $command_to_run"
     validate_env_name "$env_name"
     shift
 
@@ -136,13 +153,15 @@ run_command() {
         error_exit "Environment $env_name does not exist"
     fi
 
-    chroot "$env_path" "$@" || error_exit "Command execution failed"
+    chroot "$env_path" "$@" || error_exit "Command execution failed: $command_to_run"
+    log_message "INFO" "Successfully ran command in environment '$env_name': $command_to_run"
 }
 
 # Function to build a chroot environment from a Chrootfile
 build_environment() {
     local env_name=$1
     local chrootfile=$2
+    log_message "INFO" "Attempting to build environment '$env_name' from Chrootfile: $chrootfile"
     validate_env_name "$env_name"
 
     if [ ! -f "$chrootfile" ]; then
@@ -183,6 +202,7 @@ build_environment() {
                     error_exit "Path traversal attempt detected in COPY command: $line"
                 fi
 
+                log_message "INFO" "Chrootfile: COPY $src $dest"
                 mkdir -p "$(dirname "$env_path/$dest")"
                 if [ -f "$src" ] && [ -x "$src" ]; then
                     # It's a binary file, copy with dependencies
@@ -197,6 +217,7 @@ build_environment() {
                 if [ -z "$dev" ] || [ -z "$type" ] || [ -z "$major" ] || [ -z "$minor" ]; then
                     error_exit "Invalid MKDEV command: $line"
                 fi
+                log_message "INFO" "Chrootfile: MKDEV $dev $type $major $minor"
                 mknod "$env_path/$dev" "$type" "$major" "$minor" || \
                     error_exit "Failed to create device node: $dev"
                 ;;
@@ -205,6 +226,7 @@ build_environment() {
                 if [ -z "$cmd" ]; then
                     error_exit "Empty RUN command"
                 fi
+                log_message "INFO" "Chrootfile: RUN $cmd"
                 chroot "$env_path" /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
                 ;;
             *)
@@ -214,10 +236,12 @@ build_environment() {
     done < "$chrootfile"
 
     echo "Successfully built chroot environment: $env_name"
+    log_message "INFO" "Successfully built environment '$env_name' from Chrootfile: $chrootfile"
 }
 
 # Function to list chroot environments
 list_environments() {
+    log_message "INFO" "Listing environments"
     if [ ! -d "$CHROOT_BASE" ]; then
         echo "No chroot environments found"
         return
@@ -230,6 +254,7 @@ list_environments() {
 # Function to remove a chroot environment
 remove_environment() {
     local env_name=$1
+    log_message "INFO" "Attempting to remove environment: $env_name"
     validate_env_name "$env_name"
 
     local env_path="$CHROOT_BASE/$env_name"
@@ -244,15 +269,18 @@ remove_environment() {
 
     # Unmount any mounted filesystems
     while mountpoint -q "$env_path/proc" 2>/dev/null; do
+        log_message "INFO" "Unmounting $env_path/proc"
         umount "$env_path/proc" || error_exit "Failed to unmount proc"
     done
 
     while mountpoint -q "$env_path/sys" 2>/dev/null; do
+        log_message "INFO" "Unmounting $env_path/sys"
         umount "$env_path/sys" || error_exit "Failed to unmount sys"
     done
 
     rm -rf "$env_path" || error_exit "Failed to remove environment"
     echo "Successfully removed chroot environment: $env_name"
+    log_message "INFO" "Successfully removed environment: $env_name"
 }
 
 # Main script logic

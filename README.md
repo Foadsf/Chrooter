@@ -11,6 +11,11 @@ This version of Chrooter has been significantly overhauled for robustness and se
 - **Powerful `build` command:** Build environments from a `Chrootfile`, with automatic dependency handling for copied binaries.
 - **Secure by Default:** Includes checks for root privileges, validation of environment names to prevent path traversal, and protection against removing running environments.
 - **Interactive Sessions:** The `start` command provides an interactive shell within the chroot and correctly mounts `/proc` and `/sys`.
+- **Centralized Logging:** All operations and errors are logged to `/var/log/chrooter.log` for easy traceability and debugging.
+
+## Logging
+
+All actions performed by `chrooter` are logged to `/var/log/chrooter.log`. This includes the creation, removal, starting, and building of environments, as well as any errors that occur. You can monitor this file to see a detailed history of operations.
 
 ## Installation
 
