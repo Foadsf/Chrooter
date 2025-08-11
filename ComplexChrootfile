@@ -1,0 +1,4 @@
+# A more complex Chrootfile for testing
+COPY install_stuff.sh /tmp/install_stuff.sh
+RUN chmod +x /tmp/install_stuff.sh
+RUN /tmp/install_stuff.sh

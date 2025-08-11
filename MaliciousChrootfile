@@ -1,0 +1,1 @@
+COPY ../../etc/hosts /tmp/hosts

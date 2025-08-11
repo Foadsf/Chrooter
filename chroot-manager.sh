@@ -17,6 +17,9 @@ check_root() {
     if [ "$(id -u)" != "0" ]; then
         error_exit "This script must be run as root"
     fi
+    if ! command -v fuser &> /dev/null; then
+        error_exit "fuser command not found. Please install psmisc package."
+    fi
 }
 
 # Validate environment name
@@ -84,6 +87,7 @@ create_environment() {
         "/bin/cat"
         "/bin/echo"
         "/bin/sh"
+        "/bin/sleep"
     )
 
     for binary in "${essential_binaries[@]}"; do
@@ -92,6 +96,8 @@ create_environment() {
 
     # Create necessary device nodes
     mkdir -p "$env_path/dev"
+    mkdir -p "$env_path/proc"
+    mkdir -p "$env_path/sys"
     mknod -m 666 "$env_path/dev/null" c 1 3
     mknod -m 666 "$env_path/dev/tty" c 5 0
     mknod -m 666 "$env_path/dev/zero" c 1 5
@@ -158,6 +164,7 @@ build_environment() {
     copy_binary_with_deps "/bin/sh" "/bin/sh" "$env_path"
     copy_binary_with_deps "/bin/echo" "/bin/echo" "$env_path"
     copy_binary_with_deps "/bin/cat" "/bin/cat" "$env_path"
+    copy_binary_with_deps "/bin/chmod" "/bin/chmod" "$env_path"
 
     # Process Chrootfile
     while IFS= read -r line || [ -n "$line" ]; do
@@ -169,6 +176,11 @@ build_environment() {
                 read -r _ src dest <<< "$line"
                 if [ -z "$src" ] || [ -z "$dest" ]; then
                     error_exit "Invalid COPY command: $line"
+                fi
+
+                # Security: prevent path traversal
+                if [[ "$src" == *".."* ]] || [[ "$dest" == *".."* ]]; then
+                    error_exit "Path traversal attempt detected in COPY command: $line"
                 fi
 
                 mkdir -p "$(dirname "$env_path/$dest")"
