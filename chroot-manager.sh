@@ -176,6 +176,8 @@ build_environment() {
 
     # Create basic directory structure and device nodes
     mkdir -p "$env_path/dev"
+    mkdir -p "$env_path/proc"
+    mkdir -p "$env_path/sys"
     mknod -m 666 "$env_path/dev/null" c 1 3
     mknod -m 666 "$env_path/dev/tty" c 5 0
     mknod -m 666 "$env_path/dev/zero" c 1 5

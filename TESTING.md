@@ -30,6 +30,21 @@ sudo chrooter build complex-test ComplexChrootfile
 sudo chrooter run complex-test /bin/cat /tmp/test_result
 sudo chrooter rm complex-test
 
+## Environment Consistency Tests
+```bash
+# Test create vs build consistency
+sudo chrooter create create-test
+sudo chrooter build build-test TestChrootfile
+
+# Both should support start command
+sudo chrooter start create-test  # Type 'exit' to test
+sudo chrooter start build-test   # Type 'exit' to test
+
+# Cleanup
+sudo chrooter rm create-test
+sudo chrooter rm build-test
+```
+
 # Test security (should fail safely)
 sudo chrooter build malicious-test MaliciousChrootfile
 sudo chrooter create ""

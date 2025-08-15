@@ -1,4 +1,1 @@
-# Test Chrootfile
-COPY /bin/pwd /bin/pwd
-COPY /etc/hostname /etc/hostname
-RUN /bin/echo "hello from build"
+RUN echo 'hello from build'
