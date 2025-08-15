@@ -153,6 +153,14 @@ create_environment() {
     mknod -m 666 "$env_path/dev/zero" c 1 5
     mknod -m 666 "$env_path/dev/random" c 1 8
 
+    # Set a default locale to prevent warnings
+    mkdir -p "$env_path/etc/default"
+    echo "LC_ALL=C" > "$env_path/etc/default/locale"
+
+    # Set a default locale to prevent warnings
+    mkdir -p "$env_path/etc/default"
+    echo "LC_ALL=C" > "$env_path/etc/default/locale"
+
     echo "Successfully created chroot environment: $env_name"
     log_message "INFO" "Successfully created environment: $env_name"
 }
@@ -179,7 +187,7 @@ start_environment() {
     trap "umount '$env_path/proc' '$env_path/sys'; log_message 'INFO' 'Exited chroot environment: $env_name'" EXIT
 
     # Set a safe locale to prevent warnings inside the chroot
-    chroot "$env_path" env LC_ALL=C /bin/bash || error_exit "Failed to start chroot environment"
+    chroot "$env_path" /bin/bash || error_exit "Failed to start chroot environment"
 }
 
 # Function to run a command inside a chroot environment
@@ -196,7 +204,7 @@ run_command() {
     fi
 
     # Set a safe locale to prevent warnings inside the chroot
-    chroot "$env_path" env LC_ALL=C "$@" || error_exit "Command execution failed: $command_to_run"
+    chroot "$env_path" "$@" || error_exit "Command execution failed: $command_to_run"
     log_message "INFO" "Successfully ran command in environment '$env_name': $command_to_run"
 }
 
@@ -283,7 +291,7 @@ build_environment() {
                 fi
                 log_message "INFO" "Chrootfile: RUN $cmd"
                 # Set a safe locale to prevent warnings inside the chroot
-                chroot "$env_path" env LC_ALL=C /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
+                chroot "$env_path" /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
                 ;;
             *)
                 error_exit "Unknown command in Chrootfile: $line"
