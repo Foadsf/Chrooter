@@ -100,6 +100,7 @@ create_environment() {
         "/bin/echo"
         "/bin/sh"
         "/bin/sleep"
+        "/usr/bin/env"
     )
 
     for binary in "${essential_binaries[@]}"; do
@@ -140,7 +141,8 @@ start_environment() {
     # are embedded in the trap command string.
     trap "umount '$env_path/proc' '$env_path/sys'; log_message 'INFO' 'Exited chroot environment: $env_name'" EXIT
 
-    chroot "$env_path" /bin/bash || error_exit "Failed to start chroot environment"
+    # Set a safe locale to prevent warnings inside the chroot
+    chroot "$env_path" env LC_ALL=C /bin/bash || error_exit "Failed to start chroot environment"
 }
 
 # Function to run a command inside a chroot environment
@@ -156,7 +158,8 @@ run_command() {
         error_exit "Environment $env_name does not exist"
     fi
 
-    chroot "$env_path" "$@" || error_exit "Command execution failed: $command_to_run"
+    # Set a safe locale to prevent warnings inside the chroot
+    chroot "$env_path" env LC_ALL=C "$@" || error_exit "Command execution failed: $command_to_run"
     log_message "INFO" "Successfully ran command in environment '$env_name': $command_to_run"
 }
 
@@ -189,6 +192,7 @@ build_environment() {
     copy_binary_with_deps "/bin/echo" "/bin/echo" "$env_path"
     copy_binary_with_deps "/bin/cat" "/bin/cat" "$env_path"
     copy_binary_with_deps "/bin/chmod" "/bin/chmod" "$env_path"
+    copy_binary_with_deps "/usr/bin/env" "/usr/bin/env" "$env_path"
 
     # Process Chrootfile
     while IFS= read -r line || [ -n "$line" ]; do
@@ -232,7 +236,8 @@ build_environment() {
                     error_exit "Empty RUN command"
                 fi
                 log_message "INFO" "Chrootfile: RUN $cmd"
-                chroot "$env_path" /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
+                # Set a safe locale to prevent warnings inside the chroot
+                chroot "$env_path" env LC_ALL=C /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
                 ;;
             *)
                 error_exit "Unknown command in Chrootfile: $line"

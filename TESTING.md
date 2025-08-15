@@ -45,6 +45,15 @@ sudo chrooter rm create-test
 sudo chrooter rm build-test
 ```
 
+## Locale Testing
+```bash
+# Verify no locale warnings appear
+sudo chrooter create locale-test 2>&1 | grep -i "locale\|warning" || echo "No locale warnings - SUCCESS"
+sudo chrooter start locale-test  # Should be clean output
+sudo chrooter run locale-test /bin/echo "Testing locale" 2>&1 | grep -i "locale\|warning" || echo "No locale warnings - SUCCESS"
+sudo chrooter rm locale-test
+```
+
 # Test security (should fail safely)
 sudo chrooter build malicious-test MaliciousChrootfile
 sudo chrooter create ""
