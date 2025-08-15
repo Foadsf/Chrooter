@@ -135,7 +135,10 @@ start_environment() {
     mount -t sysfs sys "$env_path/sys" || error_exit "Failed to mount sysfs"
 
     log_message "INFO" "Entering chroot environment: $env_name"
-    trap 'umount "$env_path/proc" "$env_path/sys"; log_message "INFO" "Exited chroot environment: $env_name"' EXIT
+    # The trap is defined with double quotes to ensure variable expansion at the time of setting the trap.
+    # This prevents "unbound variable" errors when the trap is executed on EXIT, as the variables' values
+    # are embedded in the trap command string.
+    trap "umount '$env_path/proc' '$env_path/sys'; log_message 'INFO' 'Exited chroot environment: $env_name'" EXIT
 
     chroot "$env_path" /bin/bash || error_exit "Failed to start chroot environment"
 }

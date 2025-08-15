@@ -1,0 +1,36 @@
+# Logs
+*.log
+/var/log/chrooter.log
+
+# Chroot environments
+/var/chroot/*/
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Backup files
+*.bak
+*.backup
+
+# Test environments
+test-*/
+*-test/
+
+# Distribution files
+*.tar.gz
+*.zip
+*.deb
+*.rpm
