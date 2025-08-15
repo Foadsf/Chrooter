@@ -69,6 +69,20 @@ sudo chrooter run python-test /bin/cat /var/www/index.html
 sudo chrooter rm python-test
 ```
 
+## PHP Functionality Testing
+```bash
+# Test PHP with timezone functions
+sudo chrooter build php-test PHPTestChrootfile
+sudo chrooter run php-test /usr/bin/php -r "echo 'Current time: ' . date('Y-m-d H:i:s') . PHP_EOL;"
+sudo chrooter run php-test /usr/bin/php -r "echo 'Timezone: ' . date_default_timezone_get() . PHP_EOL;"
+
+# Verify no locale warnings (should be silent)
+sudo chrooter run php-test /usr/bin/php -v 2>&1 | grep -i "warning\|locale" && echo "FAIL: Warnings present" || echo "SUCCESS: No warnings"
+
+# Cleanup
+sudo chrooter rm php-test
+```
+
 # Test security (should fail safely)
 sudo chrooter build malicious-test MaliciousChrootfile
 sudo chrooter create ""

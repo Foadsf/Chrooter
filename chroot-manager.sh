@@ -1,4 +1,5 @@
 #!/bin/bash
+export LC_ALL=C
 
 set -euo pipefail  # Enable strict error handling
 
@@ -113,6 +114,46 @@ copy_binary_with_deps() {
             cp -r "/usr/lib/lib-dynload" "$env_path/usr/lib/" 2>/dev/null || true
         fi
     fi
+
+    # Special handling for PHP binaries to copy timezone data
+    if [[ "$binary_path" == *"php"* ]]; then
+        log_message "INFO" "PHP binary detected. Copying timezone data..."
+        echo "DEBUG: Copying PHP timezone data"
+        mkdir -p "$env_path/usr/share"
+        if cp -r /usr/share/zoneinfo "$env_path/usr/share/" 2>/dev/null; then
+            echo "DEBUG: Timezone data copied successfully"
+        else
+            echo "DEBUG: Timezone data copy failed"
+        fi
+
+        # Copy PHP configuration if it exists
+        if [ -d "/etc/php" ]; then
+            mkdir -p "$env_path/etc"
+            cp -r /etc/php "$env_path/etc/" 2>/dev/null || true
+        fi
+
+        # Copy PHP extensions
+        local php_extension_dir=$(php -i | grep extension_dir | awk '{print $3}')
+        if [ -d "$php_extension_dir" ]; then
+            log_message "INFO" "Copying PHP extensions from $php_extension_dir"
+            mkdir -p "$env_path$php_extension_dir"
+            cp -r "$php_extension_dir"/* "$env_path$php_extension_dir/" 2>/dev/null || true
+        fi
+
+        # Copy additional libraries needed by PHP extensions
+        local additional_libs=(
+            "/usr/lib/x86_64-linux-gnu/libffi.so.8"
+            "/usr/lib/x86_64-linux-gnu/libedit.so.2"
+            "/usr/lib/x86_64-linux-gnu/libbsd.so.0"
+            "/usr/lib/x86_64-linux-gnu/libmd.so.0"
+        )
+        for lib in "${additional_libs[@]}"; do
+            if [ -f "$lib" ]; then
+                mkdir -p "$env_path$(dirname "$lib")"
+                cp "$lib" "$env_path$lib"
+            fi
+        done
+    fi
 }
 
 # Function to create a new chroot environment
@@ -153,14 +194,6 @@ create_environment() {
     mknod -m 666 "$env_path/dev/zero" c 1 5
     mknod -m 666 "$env_path/dev/random" c 1 8
 
-    # Set a default locale to prevent warnings
-    mkdir -p "$env_path/etc/default"
-    echo "LC_ALL=C" > "$env_path/etc/default/locale"
-
-    # Set a default locale to prevent warnings
-    mkdir -p "$env_path/etc/default"
-    echo "LC_ALL=C" > "$env_path/etc/default/locale"
-
     echo "Successfully created chroot environment: $env_name"
     log_message "INFO" "Successfully created environment: $env_name"
 }
@@ -186,7 +219,6 @@ start_environment() {
     # are embedded in the trap command string.
     trap "umount '$env_path/proc' '$env_path/sys'; log_message 'INFO' 'Exited chroot environment: $env_name'" EXIT
 
-    # Set a safe locale to prevent warnings inside the chroot
     chroot "$env_path" /bin/bash || error_exit "Failed to start chroot environment"
 }
 
@@ -203,7 +235,6 @@ run_command() {
         error_exit "Environment $env_name does not exist"
     fi
 
-    # Set a safe locale to prevent warnings inside the chroot
     chroot "$env_path" "$@" || error_exit "Command execution failed: $command_to_run"
     log_message "INFO" "Successfully ran command in environment '$env_name': $command_to_run"
 }
@@ -290,7 +321,6 @@ build_environment() {
                     error_exit "Empty RUN command"
                 fi
                 log_message "INFO" "Chrootfile: RUN $cmd"
-                # Set a safe locale to prevent warnings inside the chroot
                 chroot "$env_path" /bin/bash -c "$cmd" || error_exit "Command failed: $cmd"
                 ;;
             *)
