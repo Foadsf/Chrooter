@@ -76,6 +76,43 @@ copy_binary_with_deps() {
             cp "$loader" "$loader_dest_path"
         fi
     fi
+
+    # Special handling for Python binaries to copy their standard library
+    if [[ "$binary_path" == *"/python"* ]]; then
+        log_message "INFO" "Python binary detected. Copying Python libraries for $binary_path..."
+
+        # Find the python version, e.g., 3.9 from /usr/bin/python3.9
+        local python_version=$(echo "$binary_path" | grep -oP 'python\K[0-9]+\.[0-9]+')
+        if [ -z "$python_version" ]; then
+            # Fallback for generic python, try to get system's default python3 version
+            python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        fi
+
+        log_message "INFO" "Detected Python version: $python_version"
+        local python_lib_path="/usr/lib/python${python_version}"
+
+        if [ -d "$python_lib_path" ]; then
+            # Ensure the target directory exists
+            mkdir -p "$env_path/usr/lib"
+            cp -r "$python_lib_path" "$env_path/usr/lib/" 2>/dev/null || true
+        fi
+
+        # Also copy the zip file if it exists
+        local python_zip_file="/usr/lib/python${python_version%.*}.zip"
+        if [ -f "$python_zip_file" ]; then
+            cp "$python_zip_file" "$env_path/usr/lib/" 2>/dev/null || true
+        fi
+
+        # Also copy lib-dynload, which is often needed.
+        # This is not typically versioned, but let's check for a versioned one first.
+        local dynload_path="/usr/lib/python${python_version}/lib-dynload"
+        if [ -d "$dynload_path" ]; then
+             cp -r "$dynload_path" "$env_path/usr/lib/python${python_version}/" 2>/dev/null || true
+        elif [ -d "/usr/lib/lib-dynload" ]; then
+            # Fallback to a generic lib-dynload
+            cp -r "/usr/lib/lib-dynload" "$env_path/usr/lib/" 2>/dev/null || true
+        fi
+    fi
 }
 
 # Function to create a new chroot environment
@@ -186,13 +223,22 @@ build_environment() {
     mknod -m 666 "$env_path/dev/zero" c 1 5
     mknod -m 666 "$env_path/dev/random" c 1 8
 
-    # Copy bash and sh for RUN commands
-    copy_binary_with_deps "/bin/bash" "/bin/bash" "$env_path"
-    copy_binary_with_deps "/bin/sh" "/bin/sh" "$env_path"
-    copy_binary_with_deps "/bin/echo" "/bin/echo" "$env_path"
-    copy_binary_with_deps "/bin/cat" "/bin/cat" "$env_path"
-    copy_binary_with_deps "/bin/chmod" "/bin/chmod" "$env_path"
-    copy_binary_with_deps "/usr/bin/env" "/usr/bin/env" "$env_path"
+    # A list of essential binaries to include in the chroot
+    local essential_binaries=(
+        "/bin/bash"
+        "/bin/ls"
+        "/bin/cat"
+        "/bin/echo"
+        "/bin/sh"
+        "/bin/sleep"
+        "/usr/bin/env"
+        "/bin/mkdir"
+        "/bin/chmod"
+    )
+
+    for binary in "${essential_binaries[@]}"; do
+        copy_binary_with_deps "$binary" "$binary" "$env_path"
+    done
 
     # Process Chrootfile
     while IFS= read -r line || [ -n "$line" ]; do

@@ -54,6 +54,21 @@ sudo chrooter run locale-test /bin/echo "Testing locale" 2>&1 | grep -i "locale\
 sudo chrooter rm locale-test
 ```
 
+## Complex Dependencies Testing
+```bash
+# Test Python support
+sudo chrooter build python-test WebServerChrootfile
+sudo chrooter run python-test /usr/bin/python3 -c "print('Python works!')"
+sudo chrooter run python-test /usr/bin/python3 -m http.server --help
+
+# Test build utilities
+sudo chrooter run python-test /bin/ls /var/www
+sudo chrooter run python-test /bin/cat /var/www/index.html
+
+# Cleanup
+sudo chrooter rm python-test
+```
+
 # Test security (should fail safely)
 sudo chrooter build malicious-test MaliciousChrootfile
 sudo chrooter create ""
