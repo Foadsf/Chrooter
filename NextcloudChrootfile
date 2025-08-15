@@ -1,0 +1,2 @@
+COPY /usr/bin/php /usr/bin/php
+RUN mkdir -p /var/www/nextcloud

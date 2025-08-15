@@ -42,6 +42,36 @@ validate_env_name() {
     fi
 }
 
+# Helper function to copy only the dependencies of a binary
+copy_binary_dependencies() {
+    local binary_path=$1
+    local env_path=$2
+
+    if [ ! -f "$binary_path" ]; then
+        return
+    fi
+
+    # Get dependencies and copy them
+    local deps=$(ldd "$binary_path" | awk 'NF == 4 {print $3}' | grep '^/')
+    for dep in $deps; do
+        local dep_dest_path="$env_path$dep"
+        if [ ! -e "$dep_dest_path" ]; then
+            mkdir -p "$(dirname "$dep_dest_path")"
+            cp "$dep" "$dep_dest_path"
+        fi
+    done
+
+    # The loader is special
+    local loader=$(ldd "$binary_path" | grep 'ld-linux' | awk '{print $1}')
+    if [ -n "$loader" ] && [ -f "$loader" ]; then
+        local loader_dest_path="$env_path$loader"
+        if [ ! -e "$loader_dest_path" ]; then
+            mkdir -p "$(dirname "$loader_dest_path")"
+            cp "$loader" "$loader_dest_path"
+        fi
+    fi
+}
+
 # Helper function to copy a binary and its dependencies
 copy_binary_with_deps() {
     local binary_path=$1
@@ -115,44 +145,31 @@ copy_binary_with_deps() {
         fi
     fi
 
-    # Special handling for PHP binaries to copy timezone data
+    # Special handling for PHP binaries to copy timezone data and extensions
     if [[ "$binary_path" == *"php"* ]]; then
-        log_message "INFO" "PHP binary detected. Copying timezone data..."
-        echo "DEBUG: Copying PHP timezone data"
+        echo "DEBUG: Setting up complete PHP environment"
+
+        # Copy timezone data
         mkdir -p "$env_path/usr/share"
-        if cp -r /usr/share/zoneinfo "$env_path/usr/share/" 2>/dev/null; then
-            echo "DEBUG: Timezone data copied successfully"
-        else
-            echo "DEBUG: Timezone data copy failed"
-        fi
+        cp -r /usr/share/zoneinfo "$env_path/usr/share/" 2>/dev/null || true
 
-        # Copy PHP configuration if it exists
-        if [ -d "/etc/php" ]; then
-            mkdir -p "$env_path/etc"
-            cp -r /etc/php "$env_path/etc/" 2>/dev/null || true
-        fi
+        # Copy PHP extension directory
+        mkdir -p "$env_path/usr/lib/php"
+        cp -r /usr/lib/php/* "$env_path/usr/lib/php/" 2>/dev/null || true
 
-        # Copy PHP extensions
-        local php_extension_dir=$(php -i | grep extension_dir | awk '{print $3}')
-        if [ -d "$php_extension_dir" ]; then
-            log_message "INFO" "Copying PHP extensions from $php_extension_dir"
-            mkdir -p "$env_path$php_extension_dir"
-            cp -r "$php_extension_dir"/* "$env_path$php_extension_dir/" 2>/dev/null || true
-        fi
+        # Copy PHP configuration
+        mkdir -p "$env_path/etc/php"
+        cp -r /etc/php "$env_path/etc/" 2>/dev/null || true
 
-        # Copy additional libraries needed by PHP extensions
-        local additional_libs=(
-            "/usr/lib/x86_64-linux-gnu/libffi.so.8"
-            "/usr/lib/x86_64-linux-gnu/libedit.so.2"
-            "/usr/lib/x86_64-linux-gnu/libbsd.so.0"
-            "/usr/lib/x86_64-linux-gnu/libmd.so.0"
-        )
-        for lib in "${additional_libs[@]}"; do
-            if [ -f "$lib" ]; then
-                mkdir -p "$env_path$(dirname "$lib")"
-                cp "$lib" "$env_path$lib"
+        # Copy extension dependencies using ldd on each .so file
+        for ext_file in /usr/lib/php/*//*.so; do
+            if [[ -f "$ext_file" ]]; then
+                # Use existing copy_binary_dependencies logic for each extension
+                copy_binary_dependencies "$ext_file" "$env_path"
             fi
         done
+
+        echo "DEBUG: PHP environment setup complete"
     fi
 }
 

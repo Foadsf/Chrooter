@@ -69,18 +69,18 @@ sudo chrooter run python-test /bin/cat /var/www/index.html
 sudo chrooter rm python-test
 ```
 
-## PHP Functionality Testing
+## PHP Extension Testing
 ```bash
-# Test PHP with timezone functions
-sudo chrooter build php-test PHPTestChrootfile
-sudo chrooter run php-test /usr/bin/php -r "echo 'Current time: ' . date('Y-m-d H:i:s') . PHP_EOL;"
-sudo chrooter run php-test /usr/bin/php -r "echo 'Timezone: ' . date_default_timezone_get() . PHP_EOL;"
+# Test complete PHP environment
+sudo chrooter build php-full-test NextcloudChrootfile
+sudo chrooter run php-full-test /usr/bin/php -m | head -20
+sudo chrooter run php-full-test /usr/bin/php -r "phpinfo();" | grep -E "(sqlite|json|xml|mbstring)"
 
-# Verify no locale warnings (should be silent)
-sudo chrooter run php-test /usr/bin/php -v 2>&1 | grep -i "warning\|locale" && echo "FAIL: Warnings present" || echo "SUCCESS: No warnings"
+# Test Nextcloud compatibility
+sudo chrooter run php-full-test /usr/bin/php -S 0.0.0.0:8083 -t /var/www/nextcloud
 
 # Cleanup
-sudo chrooter rm php-test
+sudo chrooter rm php-full-test
 ```
 
 # Test security (should fail safely)
